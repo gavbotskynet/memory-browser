@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adam's Memory Browser</title>
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        :root {
+            --bg: #1a1a2e;
+            --card: #16213e;
+            --accent: #0f3460;
+            --highlight: #e94560;
+            --text: #eee;
+            --text-dim: #888;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 { font-size: 1.5rem; margin-bottom: 20px; }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat {
+            background: var(--card);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .stat strong { color: var(--highlight); }
+        
+        .search {
+            width: 100%;
+            padding: 12px;
+            background: var(--card);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+        
+        .search:focus {
+            outline: none;
+            border-color: var(--highlight);
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+        
+        .tab {
+            padding: 8px 16px;
+            background: var(--card);
+            border: none;
+            border-radius: 20px;
+            color: var(--text);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .tab.active {
+            background: var(--highlight);
+        }
+        
+        .memory-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .memory {
+            background: var(--card);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid var(--highlight);
+        }
+        
+        .memory-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .memory-id {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+        
+        .importance {
+            color: var(--highlight);
+            letter-spacing: 2px;
+        }
+        
+        .memory-content {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        .tags {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        
+        .tag {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            background: var(--accent);
+            border-radius: 10px;
+        }
+        
+        .meta {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 8px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-dim);
+        }
+        
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-dim);
+        }
+        
+        .refresh {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--highlight);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🧠 Adam's Memory Browser</h1>
+    </div>
+    
+    <div class="stats" id="stats">
+        <div class="stat">Loading...</div>
+    </div>
+    
+    <input type="text" class="search" id="search" placeholder="Search memories...">
+    
+    <div class="tabs">
+        <button class="tab active" data-view="recent">Recent</button>
+        <button class="tab" data-view="important">Important</button>
+        <button class="tab" data-view="all">All</button>
+        <button class="tab" data-view="sessions">Sessions</button>
+    </div>
+    
+    <div class="memory-list" id="list">
+        <div class="loading">Loading...</div>
+    </div>
+    
+    <button class="refresh" onclick="loadData()">↻</button>
+    
+    <script>
+        const API = '';
+        let currentView = 'recent';
+        
+        async function loadStats() {
+            const res = await fetch(`${API}/api/stats`);
+            const stats = await res.json();
+            document.getElementById('stats').innerHTML = `
+                <div class="stat">Memories: <strong>${stats.total_memories}</strong></div>
+                <div class="stat">Sessions: <strong>${stats.sessions}</strong></div>
+                <div class="stat">Avg Importance: <strong>${stats.avg_importance}</strong></div>
+            `;
+        }
+        
+        async function loadMemories(endpoint) {
+            const res = await fetch(`${API}/api/${endpoint}`);
+            return await res.json();
+        }
+        
+        async function loadData() {
+            const list = document.getElementById('list');
+            list.innerHTML = '<div class="loading">Loading...</div>';
+            
+            await loadStats();
+            
+            let data;
+            if (currentView === 'recent') {
+                data = await loadMemories('api/memories?limit=20');
+            } else if (currentView === 'important') {
+                data = await loadMemories('api/memories/important?limit=20');
+            } else if (currentView === 'all') {
+                data = await loadMemories('api/memories?limit=100');
+            } else if (currentView === 'sessions') {
+                data = await loadMemories('api/sessions?limit=20');
+            }
+            
+            render(data);
+        }
+        
+        function render(data) {
+            const list = document.getElementById('list');
+            
+            if (!data || data.length === 0) {
+                list.innerHTML = '<div class="empty">No memories found</div>';
+                return;
+            }
+            
+            if (currentView === 'sessions') {
+                list.innerHTML = data.map(s => `
+                    <div class="memory">
+                        <div class="memory-header">
+                            <span class="memory-id">${s.session_key}</span>
+                        </div>
+                        <div class="memory-content">
+                            ${s.message_count || 0} messages<br>
+                            ${s.summary || 'No summary'}
+                        </div>
+                        <div class="meta">${s.started_at}</div>
+                    </div>
+                `).join('');
+                return;
+            }
+            
+            list.innerHTML = data.map(m => `
+                <div class="memory">
+                    <div class="memory-header">
+                        <span class="memory-id">[${m.id}]</span>
+                        <span class="importance">${'★'.repeat(m.importance)}${'☆'.repeat(5-m.importance)}</span>
+                    </div>
+                    <div class="memory-content">${escapeHtml(m.content)}</div>
+                    <div class="tags">
+                        ${(m.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
+                    </div>
+                    <div class="meta">${m.created_at} • ${m.access_count} accesses</div>
+                </div>
+            `).join('');
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Search
+        let searchTimeout;
+        document.getElementById('search').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(async () => {
+                const q = e.target.value.trim();
+                if (q) {
+                    const data = await loadMemories(`/api/memories/search?q=${encodeURIComponent(q)}&limit=20`);
+                    render(data);
+                } else {
+                    loadData();
+                }
+            }, 300);
+        });
+        
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentView = tab.dataset.view;
+                loadData();
+            });
+        });
+        
+        // Load
+        loadData();
+    </script>
+</body>
+</html>
