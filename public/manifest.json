@@ -1,6 +1,7 @@
 {
-    "name": "Adam's Memory Browser",
+    "name": "Adam's Memory",
     "short_name": "Memory",
+    "description": "Browse Adam's memory database",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#1a1a2e",
