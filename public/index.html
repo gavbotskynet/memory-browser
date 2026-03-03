@@ -208,7 +208,8 @@
         }
         
         async function loadMemories(endpoint) {
-            const res = await fetch(`${API}/api/${endpoint}`);
+            const url = endpoint.startsWith('/') ? endpoint : `${API}/api/${endpoint}`;
+            const res = await fetch(url);
             return await res.json();
         }
         
@@ -220,13 +221,13 @@
             
             let data;
             if (currentView === 'recent') {
-                data = await loadMemories('api/memories?limit=20');
+                data = await loadMemories('memories?limit=20');
             } else if (currentView === 'important') {
-                data = await loadMemories('api/memories/important?limit=20');
+                data = await loadMemories('memories/important?limit=20');
             } else if (currentView === 'all') {
-                data = await loadMemories('api/memories?limit=100');
+                data = await loadMemories('memories?limit=100');
             } else if (currentView === 'sessions') {
-                data = await loadMemories('api/sessions?limit=20');
+                data = await loadMemories('sessions?limit=20');
             }
             
             render(data);
@@ -284,7 +285,7 @@
             searchTimeout = setTimeout(async () => {
                 const q = e.target.value.trim();
                 if (q) {
-                    const data = await loadMemories(`/api/memories/search?q=${encodeURIComponent(q)}&limit=20`);
+                    const data = await loadMemories(`memories/search?q=${encodeURIComponent(q)}&limit=20`);
                     render(data);
                 } else {
                     loadData();
