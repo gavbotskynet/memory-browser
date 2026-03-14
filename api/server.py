@@ -4,6 +4,10 @@ Memory Browser API - using built-in http.server
 """
 
 import sys
+import sqlite3
+import json
+import os
+from http.server import HTTPServer, BaseHTTPRequestHandler
 sys.path.insert(0, '/home/digi/.openclaw/workspace/adam-memory')
 from memory import (
     get_recent_memories, get_memory_by_id, search_memories, get_memories_by_tag,
@@ -12,9 +16,25 @@ from memory import (
     add_memory, update_memory, delete_memory,
     stats as get_stats, get_consolidation_stats
 )
-import json
-import os
-from http.server import HTTPServer, BaseHTTPRequestHandler
+
+MEMORY_DB = os.path.expanduser("~/.openclaw/adam-memory.db")
+
+def recall_memories(query, limit=5):
+    """Search memories for query."""
+    conn = sqlite3.connect(MEMORY_DB)
+    
+    cursor = conn.execute("""
+        SELECT id, content, tags, context, source, importance, embedding_id, created_at, accessed_at, access_count, last_mentioned
+        FROM memories
+        WHERE content LIKE ? OR tags LIKE ?
+        ORDER BY importance DESC, accessed_at DESC
+        LIMIT ?
+    """, (f"%{query}%", f"%{query}%", limit))
+    
+    cols = [desc[0] for desc in cursor.description]
+    results = [dict(zip(cols, row)) for row in cursor.fetchall()]
+    conn.close()
+    return results
 
 PORT = 3456
 
@@ -39,6 +59,10 @@ class Handler(BaseHTTPRequestHandler):
             q = self.get_param('q', '')
             limit = int(self.get_param('limit', 20))
             self.send_json(search_memories(q, limit))
+        elif path.startswith('/api/recall'):
+            q = self.get_param('q', '')
+            limit = int(self.get_param('limit', 10))
+            self.send_json(recall_memories(q, limit))
         elif path.startswith('/api/memories/important'):
             limit = int(self.get_param('limit', 20))
             self.send_json(get_important_memories(limit))
