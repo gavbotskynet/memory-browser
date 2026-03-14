@@ -136,6 +136,19 @@
             border-radius: 10px;
         }
         
+        .source {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #2a2a4e;
+            color: #aaa;
+        }
+        
+        .source.commit-moment {
+            background: #1a3a2a;
+            color: #4ade80;
+        }
+        
         .meta {
             font-size: 0.75rem;
             color: var(--text-dim);
@@ -168,6 +181,82 @@
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
+        
+        .delete-btn {
+            background: var(--highlight);
+            border: none;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            margin-left: 8px;
+        }
+        
+        .delete-btn:hover {
+            opacity: 0.8;
+        }
+        
+        /* Delete confirmation modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.open {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+        
+        .modal-content h3 {
+            margin-bottom: 15px;
+            color: var(--highlight);
+        }
+        
+        .modal-content p {
+            margin-bottom: 20px;
+            color: var(--text-dim);
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .modal-buttons button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .modal-buttons .cancel-btn {
+            background: var(--accent);
+            color: var(--text);
+        }
+        
+        .modal-buttons .confirm-btn {
+            background: var(--highlight);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -184,6 +273,7 @@
     <div class="tabs">
         <button class="tab active" data-view="recent">Recent</button>
         <button class="tab" data-view="important">Important</button>
+        <button class="tab" data-view="moments">Moments</button>
         <button class="tab" data-view="all">All</button>
         <button class="tab" data-view="sessions">Sessions</button>
     </div>
@@ -193,6 +283,18 @@
     </div>
     
     <button class="refresh" onclick="loadData()">↻</button>
+    
+    <!-- Delete Confirmation Modal -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-content">
+            <h3>🗑️ Delete Memory?</h3>
+            <p id="deleteMessage">Are you sure you want to delete this memory? This cannot be undone.</p>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeDeleteModal()">Cancel</button>
+                <button class="confirm-btn" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
     
     <script>
         const API = '/memory';
@@ -225,6 +327,9 @@
                 data = await loadMemories('memories?limit=20');
             } else if (currentView === 'important') {
                 data = await loadMemories('memories/important?limit=20');
+            } else if (currentView === 'moments') {
+                data = await loadMemories('memories?limit=50');
+                data = data.filter(m => m.source && m.source.includes('moment'));
             } else if (currentView === 'all') {
                 data = await loadMemories('memories?limit=100');
             } else if (currentView === 'sessions') {
@@ -262,13 +367,16 @@
                 <div class="memory">
                     <div class="memory-header">
                         <span class="memory-id">[${m.id}]</span>
-                        <span class="importance">${'★'.repeat(m.importance)}${'☆'.repeat(5-m.importance)}</span>
+                        <span>
+                            <span class="importance">${'★'.repeat(m.importance)}${'☆'.repeat(5-m.importance)}</span>
+                            <button class="delete-btn" onclick="confirmDelete(${m.id})">Delete</button>
+                        </span>
                     </div>
                     <div class="memory-content">${escapeHtml(m.content)}</div>
                     <div class="tags">
                         ${(m.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
                     </div>
-                    <div class="meta">${m.created_at} • ${m.access_count} accesses</div>
+                    <div class="meta">${m.created_at} • ${m.access_count} accesses${m.source ? ' • <span class="source ' + m.source.replace(/[^a-z]/g, '-') + '">' + escapeHtml(m.source) + '</span>' : ''}</div>
                 </div>
             `).join('');
         }
@@ -306,6 +414,36 @@
         
         // Load
         loadData();
+        
+        // Delete functions
+        let pendingDeleteId = null;
+        
+        function confirmDelete(id) {
+            pendingDeleteId = id;
+            document.getElementById('deleteMessage').textContent = `Are you sure you want to delete memory #${id}? This cannot be undone.`;
+            document.getElementById('deleteModal').classList.add('open');
+            document.getElementById('confirmDeleteBtn').onclick = () => deleteMemory(id);
+        }
+        
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('open');
+            pendingDeleteId = null;
+        }
+        
+        async function deleteMemory(id) {
+            try {
+                const res = await fetch(`${API}/api/memories/${id}`, { method: 'DELETE' });
+                const result = await res.json();
+                if (result.success) {
+                    closeDeleteModal();
+                    loadData(); // Refresh the list
+                }
+            } catch (err) {
+                console.error('Delete error:', err);
+                alert('Failed to delete memory');
+                closeDeleteModal();
+            }
+        }
     </script>
 </body>
 </html>
