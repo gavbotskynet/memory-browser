@@ -8,7 +8,7 @@ import sqlite3
 import json
 import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
-sys.path.insert(0, '/home/digi/.openclaw/workspace/adam-memory')
+sys.path.insert(0, '/home/digi/projects/adam-memory')
 from memory import (
     get_recent_memories, get_memory_by_id, search_memories, get_memories_by_tag,
     get_important_memories, get_all_tags,
@@ -149,7 +149,10 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(response.encode())
     
     def serve_file(self, filepath, content_type):
-        full_path = f'/home/digi/.openclaw/workspace/memory-browser/{filepath}'
+        # Resolve relative to this file's parent (…/memory-browser/), so the path
+        # follows the project if it's ever moved again.
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        full_path = os.path.join(project_root, filepath)
         if os.path.exists(full_path):
             self.send_response(200)
             self.send_header('Content-Type', content_type)
